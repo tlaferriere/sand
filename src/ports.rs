@@ -63,3 +63,18 @@ impl<T> Out<T> {
         self.signal.send(value).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc::channel;
+
+    #[tokio::test]
+    async fn test_out_write() {
+        let test_val = 42;
+        let (tx, mut rx) = channel(32);
+        let mut out = Out::new(tx);
+        out.write(test_val).await;
+        assert_eq!(Some(test_val), rx.recv().await);
+    }
+}
