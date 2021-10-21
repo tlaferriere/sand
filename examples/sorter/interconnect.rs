@@ -1,6 +1,6 @@
 use crate::packet::Packet;
-use sys_rust::ports;
-use sys_rust::ports::{NBRead, Wait};
+use system_rust::ports;
+use system_rust::ports::{NBRead, Wait};
 
 pub(crate) struct Ports {
     pub(crate) pro_to_ic: ports::In<Packet>,
