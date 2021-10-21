@@ -77,4 +77,13 @@ mod tests {
         out.write(test_val).await;
         assert_eq!(Some(test_val), rx.recv().await);
     }
+
+    #[tokio::test]
+    async fn test_in_nbread() {
+        let test_val = 42;
+        let (tx, mut rx) = channel(32);
+        let mut port_in = In::new(rx);
+        tx.send(test_val).await;
+        assert_eq!(Some(test_val), *port_in.read());
+    }
 }
