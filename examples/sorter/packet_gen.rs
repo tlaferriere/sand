@@ -1,32 +1,35 @@
-use std::sync::mpsc::{Receiver, RecvError, Sender};
 use crate::packet::Packet;
 use rand::Rng;
-use sys_rust::{In, Out};
+use sys_rust::ports;
+use sys_rust::ports::{NBRead, Wait};
 
 pub(crate) struct Ports {
-    pub(crate) pro_to_ic: Out<Packet>,
-    pub(crate) ic_to_pro: In<Packet>
+    pub(crate) pro_to_ic: ports::Out<Packet>,
+    pub(crate) ic_to_pro: ports::In<Packet>,
 }
 
-pub(crate) fn process(ports: &mut Ports) {
-    let mut rng = rand::thread_rng();
+pub(crate) async fn process(ports: &mut Ports) {
     for address in 0..4 {
-        let payload: Vec<u32> = (0..10).map(|_| rng.gen_range(0..1000)).collect();
+        let payload: Vec<u32>;
+        {
+            let mut rng = rand::thread_rng();
+            payload = (0..10).map(|_| rng.gen_range(0..1000)).collect();
+        }
         let payload_size = payload.len() as u32;
         let packet = Packet {
             id: address,
             address,
             payload,
-            payload_size
+            payload_size,
         };
-        ports.pro_to_ic.write(packet.clone());
+        ports.pro_to_ic.write(packet.clone()).await;
 
-        match ports.ic_to_pro.wait() {
+        match ports.ic_to_pro.wait().await {
             Ok(_) => {
                 match ports.ic_to_pro.read() {
                     None => {
                         eprintln!("Error: Undefined value after wait");
-                    },
+                    }
                     Some(response) => {
                         let mut check = true;
                         for i in 0..response.payload.len() {
@@ -43,8 +46,8 @@ pub(crate) fn process(ports: &mut Ports) {
                     }
                 };
             }
-            Err(err) => {
-                eprintln!("Receive Error: {}", err);
+            Err(_) => {
+                eprintln!("Wait error");
             }
         };
     }
