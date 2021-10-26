@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Packet {
     pub(crate) id: u32,
     pub(crate) address: u32,

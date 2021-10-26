@@ -1,7 +1,6 @@
 use crate::packet::Packet;
 use rand::Rng;
-use system_rust::ports;
-use system_rust::ports::{NBRead, Wait};
+use system_rust::{ports, Read, Write};
 
 pub(crate) struct Ports {
     pub(crate) pro_to_ic: ports::Out<Packet>,
@@ -22,27 +21,22 @@ pub(crate) async fn process(ports: &mut Ports) {
             payload,
             payload_size,
         };
-        ports.pro_to_ic.write(packet.clone()).await;
+        ports.pro_to_ic.nb_write(packet.clone());
 
-        match ports.ic_to_pro.wait().await {
-            Ok(_) => {
-                match ports.ic_to_pro.read() {
-                    None => {
-                        eprintln!("Error: Undefined value after wait");
+        match ports.ic_to_pro.b_read().await {
+            Ok(response) => {
+                {
+                    let mut check = true;
+                    for i in 0..response.payload.len() {
+                        if response.payload[i] != packet.payload[i] {
+                            check = false;
+                            break;
+                        }
                     }
-                    Some(response) => {
-                        let mut check = true;
-                        for i in 0..response.payload.len() {
-                            if response.payload[i] != packet.payload[i] {
-                                check = false;
-                                break;
-                            }
-                        }
-                        if check {
-                            println!("Yay!");
-                        } else {
-                            println!("Nay!");
-                        }
+                    if check {
+                        println!("Yay!");
+                    } else {
+                        println!("Nay!");
                     }
                 };
             }

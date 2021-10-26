@@ -1,6 +1,5 @@
 use crate::packet::Packet;
-use system_rust::ports;
-use system_rust::ports::{NBRead, Wait};
+use system_rust::{ports, Read, Write};
 
 pub(crate) struct Ports {
     pub(crate) pro_to_ic: ports::In<Packet>,
@@ -24,13 +23,8 @@ pub(crate) struct Ports {
 
 pub(crate) async fn process(ports: &mut Ports) {
     loop {
-        let packet = match ports.pro_to_ic.wait().await {
-            Ok(_) => match ports.pro_to_ic.read() {
-                None => {
-                    continue;
-                }
-                Some(packet) => packet.clone(),
-            },
+        let packet = match ports.pro_to_ic.b_read().await {
+            Ok(packet) => packet.clone(),
             Err(_) => {
                 return;
             }
@@ -67,33 +61,27 @@ pub(crate) async fn process(ports: &mut Ports) {
             }
         };
 
-        ic_to_copro.write(packet).await;
-        ic_to_copro_ready.write(true).await;
+        ic_to_copro.nb_write(packet);
+        ic_to_copro_ready.nb_write(true);
 
-        let response = match copro_to_ic_ready.wait().await {
-            Ok(_) => match copro_to_ic_ready.read() {
-                None => {
-                    eprintln!("Undefined value on signal copro_to_ic_ready");
+        let response = match copro_to_ic_ready.b_read().await {
+            Ok(ready) => {
+                if ready {
+                    match copro_to_ic.nb_read() {
+                        Err(_) => {
+                            continue;
+                        }
+                        Ok(packet) => packet.clone(),
+                    }
+                } else {
                     continue;
                 }
-                Some(ready) => {
-                    if *ready {
-                        match copro_to_ic.read() {
-                            None => {
-                                continue;
-                            }
-                            Some(packet) => packet.clone(),
-                        }
-                    } else {
-                        continue;
-                    }
-                }
-            },
+            }
             Err(_) => {
                 return;
             }
         };
 
-        ports.ic_to_pro.write(response).await;
+        ports.ic_to_pro.nb_write(response);
     }
 }
