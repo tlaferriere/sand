@@ -1,8 +1,6 @@
-use crate::packet::Packet;
 use futures::future::join_all;
 use system_rust::ports;
 use system_rust::signals::signal::Signal;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task;
 
 mod copro1;

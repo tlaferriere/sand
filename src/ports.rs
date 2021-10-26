@@ -1,5 +1,5 @@
 use crate::error::{BReadError, NBReadError};
-use crate::signals::signal::{Receiver, Sender, Signal};
+use crate::signals::signal::{Receiver, Sender};
 use crate::{Read, Write};
 use async_trait::async_trait;
 
@@ -83,12 +83,13 @@ impl<T: Clone + Send> Write<T> for Out<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::signals::signal::Signal;
 
     #[tokio::test]
     async fn test_out_write() {
         let test_val = 42;
         let mut signal = Signal::new();
-        let out = Out::connect(&signal);
+        let out = Out::connect(signal.tx);
         out.nb_write(test_val);
         assert_eq!(test_val, signal.rx.nb_read().unwrap_or(0));
     }
@@ -97,7 +98,7 @@ mod tests {
     async fn test_in_nbread() {
         let test_val = 42;
         let signal = Signal::new();
-        let mut port_in = In::connect(&signal);
+        let mut port_in = In::connect(signal.rx);
         signal.tx.nb_write(test_val);
         assert_eq!(test_val, port_in.nb_read().unwrap_or(0));
     }
