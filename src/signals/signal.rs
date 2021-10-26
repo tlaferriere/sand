@@ -1,17 +1,20 @@
+//! This module holds the basic signal.
+
 use crate::error::{BReadError, NBReadError};
-use crate::signals::Event;
 use crate::{Read, Write};
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::channel;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 
+/// Wrapper for the `tokio::sync::braodcast::Sender`.
 #[derive(Clone)]
 pub struct Sender<T> {
     tx: broadcast::Sender<T>,
 }
 
 impl<T: Clone + Send> Sender<T> {
+    /// Create a new Receiver connected to this Sender.
     pub(crate) fn subscribe(&self) -> Receiver<T> {
         Receiver {
             rx: self.tx.subscribe(),
@@ -28,12 +31,11 @@ impl<T: Clone + Send> Write<T> for Sender<T> {
             Err(_) => panic!("Unable to send on signal channel."),
         }
     }
-
-    async fn b_write(&self, val: T) {
-        todo!()
-    }
 }
 
+/// Wrapper for `tokio::sync::broadcast::Receiver`.
+///
+/// This holds the previous received value in order to reflect the nature of an electrical signal.
 pub struct Receiver<T: Clone + Send> {
     rx: broadcast::Receiver<T>,
     value: Option<T>,
@@ -79,54 +81,48 @@ impl<T: Clone + Send + PartialEq> Read<T> for Receiver<T> {
             }
         }
     }
-}
 
-pub struct Signal<T: Clone + Send> {
-    pub tx: Sender<T>,
-    pub rx: Receiver<T>,
-}
-
-#[async_trait]
-impl<T: Clone + Send + Sync + PartialEq> Event for Signal<T> {
     async fn event(&mut self) {
+        self.b_read().await;
+    }
+}
+
+impl Receiver<bool> {
+    /// Suspend the process until a positive edge event is detected on the signal.
+    ///
+    /// *This is only implemented for boolean value types.*
+    async fn posedge_event(&mut self) {
         loop {
-            match self.rx.rx.recv().await {
-                Ok(val) => {
-                    if let Some(old) = &self.rx.value {
-                        if *old != val {
-                            self.rx.value = Some(val);
-                            return;
-                        }
-                    } else {
-                        self.rx.value = Some(val);
-                        return;
-                    }
+            if let Ok(val) = self.b_read().await {
+                if val {
+                    return;
                 }
-                Err(err) => match err {
-                    RecvError::Closed => {
-                        return;
-                    }
-                    RecvError::Lagged(_) => {}
-                },
+            } else {
+                return;
+            }
+        }
+    }
+
+    /// Suspend the process until a negative edge event is detected on the signal.
+    ///
+    /// *This is only implemented for boolean value types.*
+    async fn negedge_event(&mut self) {
+        loop {
+            if let Ok(val) = self.b_read().await {
+                if !val {
+                    return;
+                }
+            } else {
+                return;
             }
         }
     }
 }
 
-impl<T: Clone + Send> Signal<T> {
-    pub fn new() -> Signal<T> {
-        let (sender, rx) = channel(1);
-        Signal {
-            tx: Sender { tx: sender },
-            rx: Receiver { rx, value: None },
-        }
-    }
-}
-
-impl<T: Clone + Send> Default for Signal<T> {
-    fn default() -> Self {
-        Signal::new()
-    }
+/// Contructs a signal and returns the Sender and Receiver handles.
+pub fn signal<T: Clone + Send>() -> (Sender<T>, Receiver<T>) {
+    let (tx, rx) = channel(1);
+    (Sender { tx }, Receiver { rx, value: None })
 }
 
 #[cfg(test)]
@@ -135,52 +131,65 @@ mod tests {
 
     #[test]
     fn test_signal_new() {
-        let _: Signal<u32> = Signal::new();
+        let _: (Sender<i32>, Receiver<i32>) = signal();
     }
 
     #[test]
     fn test_signal_nb_read() {
         static TEST_VALUE: i32 = 42;
-        let mut signal = Signal::new();
-        signal.tx.tx.send(TEST_VALUE);
-        assert_eq!(TEST_VALUE, signal.rx.nb_read().unwrap_or(0));
+        let (tx, mut rx) = signal();
+        tx.tx.send(TEST_VALUE);
+        assert_eq!(TEST_VALUE, rx.nb_read().unwrap_or(0));
     }
 
     #[tokio::test]
     async fn test_signal_b_read() {
         static TEST_VALUE: i32 = 42;
-        let mut signal = Signal::new();
-        signal.tx.tx.send(TEST_VALUE);
-        assert_eq!(TEST_VALUE, signal.rx.b_read().await.unwrap_or(0));
+        let (tx, mut rx) = signal();
+        tx.tx.send(TEST_VALUE);
+        assert_eq!(TEST_VALUE, rx.b_read().await.unwrap_or(0));
     }
 
     #[tokio::test]
     async fn test_signal_nb_write() {
         static TEST_VALUE: i32 = 42;
-        let mut signal = Signal::new();
-        signal.tx.nb_write(TEST_VALUE);
-        assert_eq!(TEST_VALUE, signal.rx.rx.recv().await.unwrap_or(0));
-    }
-
-    #[tokio::test]
-    async fn test_signal_b_write() {
-        static TEST_VALUE: i32 = 42;
-        let mut signal = Signal::new();
-        signal.tx.b_write(TEST_VALUE).await;
-        assert_eq!(TEST_VALUE, signal.rx.rx.recv().await.unwrap_or(0));
+        let (tx, mut rx) = signal();
+        tx.nb_write(TEST_VALUE);
+        assert_eq!(TEST_VALUE, rx.rx.recv().await.unwrap_or(0));
     }
 
     #[tokio::test]
     async fn test_signal_change_event() {
-        let mut signal = Signal::new();
-        let tx = signal.tx.clone();
+        let (tx, mut rx) = signal();
         tokio::task::spawn(async move {
-            signal.event().await;
-            assert_eq!(41, signal.rx.nb_read().unwrap_or(0));
-            signal.event().await;
-            assert_eq!(42, signal.rx.nb_read().unwrap_or(0));
+            rx.event().await;
+            assert_eq!(41, rx.nb_read().unwrap_or(0));
+            rx.event().await;
+            assert_eq!(42, rx.nb_read().unwrap_or(0));
         });
         tx.nb_write(41);
         tx.nb_write(42);
+    }
+
+    #[tokio::test]
+    async fn test_signal_posedge_event() {
+        let (tx, mut rx) = signal();
+        tokio::task::spawn(async move {
+            rx.posedge_event().await;
+            assert!(rx.nb_read().unwrap_or(false));
+        });
+        tx.nb_write(false);
+        tx.nb_write(true);
+    }
+
+    #[tokio::test]
+    async fn test_signal_negedge_event() {
+        let (tx, mut rx) = signal();
+        tokio::task::spawn(async move {
+            rx.negedge_event().await;
+            assert!(!rx.nb_read().unwrap_or(true));
+        });
+        tx.nb_write(true);
+        tx.nb_write(false);
     }
 }
