@@ -28,3 +28,9 @@ Here are some goals and philosophies for the DSL:
 - Packaging is a priority
 - Adapting to different types of hardware should only involve changing configuration values.
 - Type inference
+
+## Testing
+The modules can be tested using Rust's test framework with help of our testing library.
+
+## Compilation
+The modules are compiled at the same time as the crate, thanks to build scripts integration.
