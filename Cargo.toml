@@ -16,3 +16,8 @@ clap = "2"
 
 [dev-dependencies]
 rand = "0.8.4"
+
+[[bin]]
+doc = false
+name = "sand"
+path = "src/bin/sand.rs"
