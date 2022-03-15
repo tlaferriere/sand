@@ -1,24 +1,24 @@
 use crate::packet::Packet;
-use system_rust::{ports, Read, Write};
+use system_rust::{port, Read, Write};
 
 pub(crate) struct Ports {
-    pub(crate) pro_to_ic: ports::In<Packet>,
-    pub(crate) ic_to_pro: ports::Out<Packet>,
+    pub(crate) pro_to_ic: port::In<Packet>,
+    pub(crate) ic_to_pro: port::Out<Packet>,
 
-    pub(crate) ic_to_copro1_ready: ports::Out<bool>,
-    pub(crate) ic_to_copro1: ports::Out<Packet>,
-    pub(crate) copro1_to_ic_ready: ports::In<bool>,
-    pub(crate) copro1_to_ic: ports::In<Packet>,
+    pub(crate) ic_to_copro1_ready: port::Out<bool>,
+    pub(crate) ic_to_copro1: port::Out<Packet>,
+    pub(crate) copro1_to_ic_ready: port::In<bool>,
+    pub(crate) copro1_to_ic: port::In<Packet>,
 
-    pub(crate) ic_to_copro2_ready: ports::Out<bool>,
-    pub(crate) ic_to_copro2: ports::Out<Packet>,
-    pub(crate) copro2_to_ic_ready: ports::In<bool>,
-    pub(crate) copro2_to_ic: ports::In<Packet>,
+    pub(crate) ic_to_copro2_ready: port::Out<bool>,
+    pub(crate) ic_to_copro2: port::Out<Packet>,
+    pub(crate) copro2_to_ic_ready: port::In<bool>,
+    pub(crate) copro2_to_ic: port::In<Packet>,
 
-    pub(crate) ic_to_copro3_ready: ports::Out<bool>,
-    pub(crate) ic_to_copro3: ports::Out<Packet>,
-    pub(crate) copro3_to_ic_ready: ports::In<bool>,
-    pub(crate) copro3_to_ic: ports::In<Packet>,
+    pub(crate) ic_to_copro3_ready: port::Out<bool>,
+    pub(crate) ic_to_copro3: port::Out<Packet>,
+    pub(crate) copro3_to_ic_ready: port::In<bool>,
+    pub(crate) copro3_to_ic: port::In<Packet>,
 }
 
 pub(crate) async fn process(ports: &mut Ports) {
@@ -32,10 +32,10 @@ pub(crate) async fn process(ports: &mut Ports) {
 
         // Dispatch the packet to the right coprocessor by address.
         let (ic_to_copro, ic_to_copro_ready, copro_to_ic_ready, copro_to_ic): (
-            &mut ports::Out<Packet>,
-            &mut ports::Out<bool>,
-            &mut ports::In<bool>,
-            &mut ports::In<Packet>,
+            &mut port::Out<Packet>,
+            &mut port::Out<bool>,
+            &mut port::In<bool>,
+            &mut port::In<Packet>,
         ) = match packet.address {
             0 => (
                 &mut ports.ic_to_copro1,

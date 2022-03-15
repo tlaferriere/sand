@@ -1,10 +1,10 @@
 use crate::packet::Packet;
 use rand::Rng;
-use system_rust::{ports, Read, Write};
+use system_rust::{port, Read, Write};
 
 pub(crate) struct Ports {
-    pub(crate) pro_to_ic: ports::Out<Packet>,
-    pub(crate) ic_to_pro: ports::In<Packet>,
+    pub(crate) pro_to_ic: port::Out<Packet>,
+    pub(crate) ic_to_pro: port::In<Packet>,
 }
 
 pub(crate) async fn process(ports: &mut Ports) {

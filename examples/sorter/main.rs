@@ -1,7 +1,7 @@
 use futures::future::join_all;
-use system_rust::ports;
 use system_rust::signal::signal;
-use tokio::task;
+use system_rust::SignalWrite;
+use system_rust_macros::connections;
 
 mod copro1;
 mod copro2;
@@ -12,83 +12,52 @@ mod packet_gen;
 
 #[tokio::main]
 async fn main() {
-    let (pro_to_ic_tx, pro_to_ic_rx) = signal();
-    let (ic_to_pro_tx, ic_to_pro_rx) = signal();
+    let pro_to_ic = signal();
+    let ic_to_pro = signal();
 
-    let (ic_to_copro1_tx, ic_to_copro1_rx) = signal();
-    let (copro1_to_ic_tx, copro1_to_ic_rx) = signal();
-    let (ic_to_copro1_ready_tx, ic_to_copro1_ready_rx) = signal();
-    let (copro1_to_ic_ready_tx, copro1_to_ic_ready_rx) = signal();
+    let ic_to_copro1 = signal();
+    let copro1_to_ic = signal();
+    let ic_to_copro1_ready = signal();
+    let copro1_to_ic_ready = signal();
 
-    let (ic_to_copro2_tx, ic_to_copro2_rx) = signal();
-    let (copro2_to_ic_tx, copro2_to_ic_rx) = signal();
-    let (ic_to_copro2_ready_tx, ic_to_copro2_ready_rx) = signal();
-    let (copro2_to_ic_ready_tx, copro2_to_ic_ready_rx) = signal();
+    let ic_to_copro2 = signal();
+    let copro2_to_ic = signal();
+    let ic_to_copro2_ready = signal();
+    let copro2_to_ic_ready = signal();
 
-    let (ic_to_copro3_tx, ic_to_copro3_rx) = signal();
-    let (copro3_to_ic_tx, copro3_to_ic_rx) = signal();
-    let (ic_to_copro3_ready_tx, ic_to_copro3_ready_rx) = signal();
-    let (copro3_to_ic_ready_tx, copro3_to_ic_ready_rx) = signal();
+    let ic_to_copro3 = signal();
+    let copro3_to_ic = signal();
+    let ic_to_copro3_ready = signal();
+    let copro3_to_ic_ready = signal();
 
-    let children = vec![
-        task::spawn(async move {
-            let mut packet_gen_ports = packet_gen::Ports {
-                pro_to_ic: ports::Out::connect(pro_to_ic_tx),
-                ic_to_pro: ports::In::connect(ic_to_pro_rx),
-            };
-            packet_gen::process(&mut packet_gen_ports).await;
-        }),
-        task::spawn(async move {
-            let mut interconnect_ports = interconnect::Ports {
-                pro_to_ic: ports::In::connect(pro_to_ic_rx),
-                ic_to_pro: ports::Out::connect(ic_to_pro_tx),
-
-                ic_to_copro1_ready: ports::Out::connect(ic_to_copro1_ready_tx),
-                ic_to_copro1: ports::Out::connect(ic_to_copro1_tx),
-                copro1_to_ic_ready: ports::In::connect(copro1_to_ic_ready_rx),
-                copro1_to_ic: ports::In::connect(copro1_to_ic_rx),
-
-                ic_to_copro2_ready: ports::Out::connect(ic_to_copro2_ready_tx),
-                ic_to_copro2: ports::Out::connect(ic_to_copro2_tx),
-                copro2_to_ic_ready: ports::In::connect(copro2_to_ic_ready_rx),
-                copro2_to_ic: ports::In::connect(copro2_to_ic_rx),
-
-                ic_to_copro3_ready: ports::Out::connect(ic_to_copro3_ready_tx),
-                ic_to_copro3: ports::Out::connect(ic_to_copro3_tx),
-                copro3_to_ic_ready: ports::In::connect(copro3_to_ic_ready_rx),
-                copro3_to_ic: ports::In::connect(copro3_to_ic_rx),
-            };
-            interconnect::process(&mut interconnect_ports).await;
-        }),
-        task::spawn(async move {
-            let mut copro1_ports = copro1::Ports {
-                ic_to_copro1_ready: ports::In::connect(ic_to_copro1_ready_rx),
-                ic_to_copro1: ports::In::connect(ic_to_copro1_rx),
-                copro1_to_ic_ready: ports::Out::connect(copro1_to_ic_ready_tx),
-                copro1_to_ic: ports::Out::connect(copro1_to_ic_tx),
-            };
-            copro1::process(&mut copro1_ports).await;
-        }),
-        task::spawn(async move {
-            let mut copro2 = copro2::Ports {
-                ic_to_copro2_ready: ports::In::connect(ic_to_copro2_ready_rx),
-                ic_to_copro2: ports::In::connect(ic_to_copro2_rx),
-                copro2_to_ic_ready: ports::Out::connect(copro2_to_ic_ready_tx),
-                copro2_to_ic: ports::Out::connect(copro2_to_ic_tx),
-            };
-            copro2::process(&mut copro2).await;
-        }),
-        task::spawn(async move {
-            let mut copro3 = copro3::Ports {
-                ic_to_copro3_ready: ports::In::connect(ic_to_copro3_ready_rx),
-                ic_to_copro3: ports::In::connect(ic_to_copro3_rx),
-                copro3_to_ic_ready: ports::Out::connect(copro3_to_ic_ready_tx),
-                copro3_to_ic: ports::Out::connect(copro3_to_ic_tx),
-            };
-            copro3::process(&mut copro3).await;
-        }),
-    ];
-
-    // Wait for the tasks to complete any remaining work
-    join_all(children).await;
+    connections! {
+            packet_gen.pro_to_ic -> pro_to_ic;
+            packet_gen.ic_to_pro <- ic_to_pro;
+            interconnect.pro_to_ic <- pro_to_ic;
+            interconnect.ic_to_pro -> ic_to_pro;
+            interconnect.ic_to_copro1_ready -> ic_to_copro1_ready;
+            interconnect.ic_to_copro1 -> ic_to_copro1;
+            interconnect.copro1_to_ic_ready <- copro1_to_ic_ready;
+            interconnect.copro1_to_ic <- copro1_to_ic;
+            interconnect.ic_to_copro2_ready -> ic_to_copro2_ready;
+            interconnect.ic_to_copro2 -> ic_to_copro2;
+            interconnect.copro2_to_ic_ready <- copro2_to_ic_ready;
+            interconnect.copro2_to_ic <- copro2_to_ic;
+            interconnect.ic_to_copro3_ready -> ic_to_copro3_ready;
+            interconnect.ic_to_copro3 -> ic_to_copro3;
+            interconnect.copro3_to_ic_ready <- copro3_to_ic_ready;
+            interconnect.copro3_to_ic <- copro3_to_ic;
+            copro1.ic_to_copro1_ready <- ic_to_copro1_ready;
+            copro1.ic_to_copro1 <- ic_to_copro1;
+            copro1.copro1_to_ic_ready -> copro1_to_ic_ready;
+            copro1.copro1_to_ic -> copro1_to_ic;
+            copro2.ic_to_copro2_ready <- ic_to_copro2_ready;
+            copro2.ic_to_copro2 <- ic_to_copro2;
+            copro2.copro2_to_ic_ready -> copro2_to_ic_ready;
+            copro2.copro2_to_ic -> copro2_to_ic;
+            copro3.ic_to_copro3_ready <- ic_to_copro3_ready;
+            copro3.ic_to_copro3 <- ic_to_copro3;
+            copro3.copro3_to_ic_ready -> copro3_to_ic_ready;
+            copro3.copro3_to_ic -> copro3_to_ic;
+    }
 }

@@ -1,11 +1,11 @@
 use crate::packet::Packet;
 use system_rust::{ports, Read, Write};
 
-pub(crate) struct Ports {
-    pub(crate) ic_to_copro3_ready: ports::In<bool>,
-    pub(crate) ic_to_copro3: ports::In<Packet>,
-    pub(crate) copro3_to_ic_ready: ports::Out<bool>,
-    pub(crate) copro3_to_ic: ports::Out<Packet>,
+ports! {
+    ic_to_copro3_ready <- bool,
+    ic_to_copro3 <- Packet,
+    copro3_to_ic_ready -> bool,
+    copro3_to_ic -> Packet,
 }
 
 pub(crate) async fn process(ports: &mut Ports) {

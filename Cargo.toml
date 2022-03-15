@@ -1,15 +1,17 @@
 [package]
 name = "system_rust"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 #autoexamples = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.12.0", features = ["full"] }
-async-trait = "0.1.51"
-futures = "0.3.17"
+tokio = { version = "1.12", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+system_rust_macros = { path = "../system_rust_macros" }
 
 [dev-dependencies]
 rand = "0.8.4"
+
